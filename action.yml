@@ -1,0 +1,30 @@
+name: 'auto publisher'
+author: 'K Sai Aditya'
+description: 'Update apps in Microsoft Store'
+inputs:
+  command:
+    description: 'The command to execute. Available command: `configure`, `get`, `update`, `poll`, or `publish`.'
+    required: false
+    default: 'configure'
+  seller-id:
+    description: 'Seller Id'
+    required: false
+  product-id:
+    description: 'Product Id'
+    required: false
+  tenant-id:
+    description: 'AAD Tenant Id'
+    required: false
+  client-id:
+    description: 'App Client Id'
+    required: false
+  client-secret:
+    description: 'App Client secret'
+    required: false
+outputs:
+runs:
+  using: 'node12'
+  main: 'dist/x.js'
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
