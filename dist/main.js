@@ -21661,45 +21661,43 @@ var diff = require_libcjs();
       core.info("Metadata fetched successfully.");
     } else if (command === "publish") {
       const fs = await import("fs/promises");
-      const jsonFilePath = core.getInput("json-file-path");
+      const jsonFilePath = core.getInput("json-file-path") || "";
       if (!jsonFilePath) {
-        core.setFailed("Missing required input: json-file-path");
-        return;
-      }
-      let providedAssets;
-      let listingAssets;
-      try {
-        providedAssets = JSON.parse(await fs.readFile(jsonFilePath, "utf-8"));
-      } catch (error) {
-        core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
-        core.warning(error);
-        return;
-      }
-      core.info("Fetching current listing assets for comparison...");
-      const { stdout: listingAssetsString } = await execAsync(`msstore submission getListingAssets ${productId}`);
-      try {
-        const cleanedListingAssetsString = listingAssetsString.replace(
-          /"(?:[^"\\]|\\.)*"/g,
-          (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-        );
-        listingAssets = JSON.parse(cleanedListingAssetsString);
-      } catch (error) {
-        core.warning("Failed to parse listing assets. Skipping comparison.");
-        core.warning(error);
-        return;
-      }
-      let isDifferent = JSON.stringify(listingAssets) !== JSON.stringify(providedAssets);
-      if (isDifferent) {
-        core.info("Differences found between listing assets and provided assets:");
-        const listingAssetsStr = JSON.stringify(listingAssets, null, 2);
-        const providedAssetsStr = JSON.stringify(providedAssets, null, 2);
-        const differences = diff.createPatch("assets", listingAssetsStr, providedAssetsStr, "current", "provided");
-        console.log(differences);
-      }
-      if (isDifferent) {
-        core.info("Listing assets are different from the provided JSON file. Proceeding with publish.");
+        core.setFailed("Missing input: json-file-path assuming metadata need not be changed");
       } else {
-        core.info("Listing assets are identical to the provided JSON file. No action needed.");
+        let providedAssets;
+        let listingAssets;
+        try {
+          providedAssets = JSON.parse(await fs.readFile(jsonFilePath, "utf-8"));
+        } catch (error) {
+          core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
+          core.warning(error);
+          return;
+        }
+        core.info("Fetching current listing assets for comparison...");
+        const { stdout: listingAssetsString } = await execAsync(`msstore submission getListingAssets ${productId}`);
+        try {
+          const cleanedListingAssetsString = listingAssetsString.replace(
+            /"(?:[^"\\]|\\.)*"/g,
+            (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
+          );
+          listingAssets = JSON.parse(cleanedListingAssetsString);
+        } catch (error) {
+          core.warning("Failed to parse listing assets. Skipping comparison.");
+          core.warning(error);
+          return;
+        }
+        let isDifferent = JSON.stringify(listingAssets) !== JSON.stringify(providedAssets);
+        if (isDifferent) {
+          core.info("Differences found between listing assets and provided assets:");
+          const listingAssetsStr = JSON.stringify(listingAssets, null, 2);
+          const providedAssetsStr = JSON.stringify(providedAssets, null, 2);
+          const differences = diff.createPatch("assets", listingAssetsStr, providedAssetsStr, "current", "provided");
+          console.log(differences);
+          core.info("Listing assets are different from the provided JSON file. Proceeding with publish.");
+        } else {
+          core.info("Listing assets are identical to the provided JSON file. No action needed.");
+        }
       }
       const publish = (0, import_child_process.exec)(`msstore publish ${packagePath} -id ${productId}`);
       if (publish.stdout) {

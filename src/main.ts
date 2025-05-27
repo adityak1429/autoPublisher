@@ -87,53 +87,50 @@ try {
     else if(command==="publish") {
 
       const fs = await import("fs/promises");
-      const jsonFilePath = core.getInput("json-file-path");
+      const jsonFilePath = core.getInput("json-file-path") || "";
       if (!jsonFilePath) {
-        core.setFailed("Missing required input: json-file-path");
-        return;
+        core.setFailed("Missing input: json-file-path assuming metadata need not be changed");
       }
-      let providedAssets: string;
-      let listingAssets: string;
-
-      try {
-        providedAssets = JSON.parse(await fs.readFile(jsonFilePath, "utf-8"));
-      } catch (error) {
-        core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
-        core.warning(error as string);
-        return;
-      }
-
-      core.info("Fetching current listing assets for comparison...");
-      const { stdout: listingAssetsString } = await execAsync(`msstore submission getListingAssets ${productId}`);
-      try{
-        // Escape line breaks inside quoted strings
-        const cleanedListingAssetsString = listingAssetsString.replace(
-          /"(?:[^"\\]|\\.)*"/g,
-          (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-        );
-        listingAssets = JSON.parse(cleanedListingAssetsString);
-      }
-      catch (error){
-        core.warning("Failed to parse listing assets. Skipping comparison.");
-        core.warning(error as string);
-        return;
-      }
-
-
-      let isDifferent = JSON.stringify(listingAssets) !== JSON.stringify(providedAssets);
-      if (isDifferent) {
-        core.info("Differences found between listing assets and provided assets:");
-        const listingAssetsStr = JSON.stringify(listingAssets, null, 2);
-        const providedAssetsStr = JSON.stringify(providedAssets, null, 2);
-        const differences = diff.createPatch("assets", listingAssetsStr, providedAssetsStr, "current", "provided");
-        console.log(differences);
-      }
-
-      if (isDifferent) {
-        core.info("Listing assets are different from the provided JSON file. Proceeding with publish.");
+      else{
+        let providedAssets: string;
+        let listingAssets: string;
+  
+        try {
+          providedAssets = JSON.parse(await fs.readFile(jsonFilePath, "utf-8"));
+        } catch (error) {
+          core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
+          core.warning(error as string);
+          return;
+        }
+  
+        core.info("Fetching current listing assets for comparison...");
+        const { stdout: listingAssetsString } = await execAsync(`msstore submission getListingAssets ${productId}`);
+        try{
+          // Escape line breaks inside quoted strings
+          const cleanedListingAssetsString = listingAssetsString.replace(
+            /"(?:[^"\\]|\\.)*"/g,
+            (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
+          );
+          listingAssets = JSON.parse(cleanedListingAssetsString);
+        }
+        catch (error){
+          core.warning("Failed to parse listing assets. Skipping comparison.");
+          core.warning(error as string);
+          return;
+        }
+        let isDifferent = JSON.stringify(listingAssets) !== JSON.stringify(providedAssets);
+        if (isDifferent) {
+          core.info("Differences found between listing assets and provided assets:");
+          const listingAssetsStr = JSON.stringify(listingAssets, null, 2);
+          const providedAssetsStr = JSON.stringify(providedAssets, null, 2);
+          const differences = diff.createPatch("assets", listingAssetsStr, providedAssetsStr, "current", "provided");
+          console.log(differences);
+          core.info("Listing assets are different from the provided JSON file. Proceeding with publish.");
+        }
+        else{
         //143 update metadata in portal
-      } else {
         core.info("Listing assets are identical to the provided JSON file. No action needed.");
+        }
       }
       //143 need packager too or check current msix consistent with metadata if msix provided
       //143 currenly assume msix is provided and is consistent with metadata
