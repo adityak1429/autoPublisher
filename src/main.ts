@@ -50,20 +50,20 @@ try {
     core.info("Configuration completed successfully.");
     if(command==="getmetadata") {
       core.info("Fetching metadata...");
-      const metadataCmd = exec(`msstore submission getListingAssets ${productId}`);
-      if (metadataCmd.stdout) {
-        metadataCmd.stdout.on("data", (data) => process.stdout.write(data));
-      }
-      if (metadataCmd.stderr) {
-        metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
-      }
-      await new Promise((resolve, reject) => {
-        metadataCmd.on("close", (code) => {
-          if (code === 0) resolve(undefined);
-          else reject(`Metadata process exited with code ${code}`);
-        });
-        metadataCmd.on("error", reject);
-      });
+      await execAsync(`msstore submission getListingAssets ${productId}`);
+      // if (metadataCmd.stdout) {
+      //   metadataCmd.stdout.on("data", (data) => process.stdout.write(data));
+      // }
+      // if (metadataCmd.stderr) {
+      //   metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
+      // }
+      // await new Promise((resolve, reject) => {
+      //   metadataCmd.on("close", (code) => {
+      //     if (code === 0) resolve(undefined);
+      //     else reject(`Metadata process exited with code ${code}`);
+      //   });
+      //   metadataCmd.on("error", reject);
+      // });
       core.info("Metadata fetched successfully.");
     }
     // else if(command==="package") {
