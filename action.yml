@@ -27,7 +27,6 @@ inputs:
   json-file-path:
     description: 'Path to the JSON file containing app metadata'
     required: false
-outputs:
 runs:
   using: 'node12'
   main: 'dist/main.js'
