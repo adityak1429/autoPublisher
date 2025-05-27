@@ -39,35 +39,35 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const util_1 = __importDefault(require("util"));
 const execAsync = util_1.default.promisify(child_process_1.exec);
-// import * as core from "@actions/core";
-const dotenv = __importStar(require("dotenv"));
 const diff = require("diff");
-dotenv.config();
-const core = {
-    getInput(name) {
-        const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-        if (!value) {
-            this.setFailed(`Missing environment variable for ${name}`);
-            process.exit(1);
-        }
-        return value;
-    },
-    setFailed(message) {
-        console.error(`❌ ${message}`);
-    },
-    setInfo(message) {
-        console.info(`ℹ️ ${message}`);
-    },
-    setWarning(message) {
-        console.warn(`⚠️ ${message}`);
-    },
-    setDebug(message) {
-        console.debug(`🐞 ${message}`);
-    }
-};
+const core = __importStar(require("@actions/core"));
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     if (!value) {
+//       this.setFailed(`Missing environment variable for ${name}`);
+//       process.exit(1);
+//     }
+//     return value;
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   }
+// };
 (async function main() {
     try {
-        core.setInfo("Starting the action...");
+        core.info("Starting the action...");
         const productId = core.getInput("product-id");
         const sellerId = core.getInput("seller-id");
         const tenantId = core.getInput("tenant-id");
@@ -79,10 +79,10 @@ const core = {
             core.setFailed("Missing required inputs");
             return;
         }
-        // await execAsync(`msstore reconfigure -t ${tenantId} -c ${clientId} -cs ${clientSecret} -s ${sellerId}`);
-        core.setInfo("Configuration completed successfully.");
+        await execAsync(`msstore reconfigure -t ${tenantId} -c ${clientId} -cs ${clientSecret} -s ${sellerId}`);
+        core.info("Configuration completed successfully.");
         if (command === "getmetadata") {
-            core.setInfo("Fetching metadata...");
+            core.info("Fetching metadata...");
             const metadataCmd = (0, child_process_1.exec)(`msstore submission getListingAssets ${productId}`);
             if (metadataCmd.stdout) {
                 metadataCmd.stdout.on("data", (data) => process.stdout.write(data));
@@ -99,10 +99,10 @@ const core = {
                 });
                 metadataCmd.on("error", reject);
             });
-            core.setInfo("Metadata fetched successfully.");
+            core.info("Metadata fetched successfully.");
         }
         // else if(command==="package") {
-        //   core.setInfo("Packaging the app...");
+        //   core.info("Packaging the app...");
         //   const packageCmd = exec(`msstore package ${packagePath} -id ${productId}`);
         //   if (packageCmd.stdout) {
         //     packageCmd.stdout.on("data", (data) => process.stdout.write(data));
@@ -117,7 +117,7 @@ const core = {
         //     });
         //     packageCmd.on("error", reject);
         //   });
-        //   core.setInfo("Package created successfully.");
+        //   core.info("Package created successfully.");
         // }
         else if (command === "publish") {
             const fs = await Promise.resolve().then(() => __importStar(require("fs/promises")));
@@ -132,11 +132,11 @@ const core = {
                 providedAssets = JSON.parse(await fs.readFile(jsonFilePath, "utf-8"));
             }
             catch (error) {
-                core.setWarning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
-                core.setWarning(error);
+                core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
+                core.warning(error);
                 return;
             }
-            core.setInfo("Fetching current listing assets for comparison...");
+            core.info("Fetching current listing assets for comparison...");
             const { stdout: listingAssetsString } = await execAsync(`msstore submission getListingAssets ${productId}`);
             try {
                 // Escape line breaks inside quoted strings
@@ -144,26 +144,27 @@ const core = {
                 listingAssets = JSON.parse(cleanedListingAssetsString);
             }
             catch (error) {
-                core.setWarning("Failed to parse listing assets. Skipping comparison.");
-                core.setWarning(error);
+                core.warning("Failed to parse listing assets. Skipping comparison.");
+                core.warning(error);
                 return;
             }
             let isDifferent = JSON.stringify(listingAssets) !== JSON.stringify(providedAssets);
             if (isDifferent) {
-                core.setInfo("Differences found between listing assets and provided assets:");
+                core.info("Differences found between listing assets and provided assets:");
                 const listingAssetsStr = JSON.stringify(listingAssets, null, 2);
                 const providedAssetsStr = JSON.stringify(providedAssets, null, 2);
                 const differences = diff.createPatch("assets", listingAssetsStr, providedAssetsStr, "current", "provided");
                 console.log(differences);
             }
             if (isDifferent) {
-                core.setInfo("Listing assets are different from the provided JSON file. Proceeding with publish.");
-                // update metadata in portal
+                core.info("Listing assets are different from the provided JSON file. Proceeding with publish.");
+                //143 update metadata in portal
             }
             else {
-                core.setInfo("Listing assets are identical to the provided JSON file. No action needed.");
+                core.info("Listing assets are identical to the provided JSON file. No action needed.");
             }
             //143 need packager too or check current msix consistent with metadata if msix provided
+            //143 currenly assume msix is provided and is consistent with metadata
             const publish = (0, child_process_1.exec)(`msstore publish ${packagePath} -id ${productId}`);
             if (publish.stdout) {
                 publish.stdout.on("data", (data) => process.stdout.write(data));
@@ -180,7 +181,7 @@ const core = {
                 });
                 publish.on("error", reject);
             });
-            core.setInfo("Package published successfully.");
+            core.info("Package published successfully.");
         }
         else {
             core.setFailed("Invalid command. Use 'getmetadata' or 'publish'.");
