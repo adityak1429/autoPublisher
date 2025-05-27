@@ -1,0 +1,41 @@
+{
+  "Keywords": [],
+  "Description": "Unlock powerful workouts, personalized meal plans, and expert \nexercise videos all in one sleek app. Stay pumped, stay fueled, and stay on \ntrack every day of the week! \uD83D\uDCAA\uD83D\uDD25 Your journey to a stronger\nyou starts here. Are you ready to level up?",
+  "Features": [],
+  "ReleaseNotes": "",
+  "Images": [
+    {
+      "FileName": "Screenshot1.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700019982211",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "Screenshot2.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700019982125",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "Screenshot3.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700019982733",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "zeeconvert-resizer.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700019982126",
+      "ImageType": "Icon"
+    },
+    {
+      "FileName": "zeeconvert-resizer (1).png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700019982212",
+      "ImageType": "StoreLogo9x16"
+    }
+  ],
+  "RecommendedHardware": [],
+  "MinimumHardware": [],
+  "Title": "FitnessFuel"
+}

@@ -4,27 +4,33 @@ description: 'Update apps in Microsoft Store'
 inputs:
   command:
     description: 'The command to execute. Available command: `configure`, `get`, `update`, `poll`, or `publish`.'
-    required: false
+    required: true
     default: 'configure'
-  seller-id:
-    description: 'Seller Id'
-    required: false
   product-id:
     description: 'Product Id'
-    required: false
+    required: true
+  seller-id:
+    description: 'Seller Id'
+    required: true
   tenant-id:
     description: 'AAD Tenant Id'
-    required: false
+    required: true
   client-id:
     description: 'App Client Id'
-    required: false
+    required: true
   client-secret:
     description: 'App Client secret'
+    required: true
+  package-path:
+    description: 'Path to the app package to upload'
+    required: true
+  json-file-path:
+    description: 'Path to the JSON file containing app metadata'
     required: false
 outputs:
 runs:
   using: 'node12'
-  main: 'dist/x.js'
+  main: 'dist/main.js'
 branding:
   icon: 'upload-cloud'
   color: 'blue'
