@@ -34,6 +34,25 @@ const core = {
   }
 };
 
+/** Expected imageType values */
+const imageType: string[] = [
+  "Screenshot",
+  "MobileScreenshot",
+  "XboxScreenshot",
+  "SurfaceHubScreenshot",
+  "HoloLensScreenshot",
+  "StoreLogo9x16",
+  "StoreLogoSquare",
+  "Icon",
+  "PromotionalArt16x9",
+  "PromotionalArtwork2400X1200",
+  "XboxBrandedKeyArt",
+  "XboxTitledHeroArt",
+  "XboxFeaturedPromotionalArt",
+  "SquareIcon358X358",
+  "BackgroundImage1000X800",
+  "PromotionalArtwork414X180",
+];
  
 /**
  * Uploads a file to Azure Blob Storage with progress reporting.
@@ -87,6 +106,95 @@ export async function uploadFileToBlob(
   }
 }
 
+/**
+ * Fetches metadata for the given productId using the msstore CLI.
+ * Returns the combined stdout output as a string.
+ */
+async function fetchMetadata(productId: string): Promise<string> {
+  core.info("Fetching metadata...");
+  return await new Promise<string>((resolve, reject) => {
+    const metadataCmd = exec(`msstore submission get ${productId}`);
+    let output = "";
+    if (metadataCmd.stdout) {
+      metadataCmd.stdout.on("data", (data) => {
+        process.stdout.write(data);
+        output += data;
+      });
+    }
+    if (metadataCmd.stderr) {
+      metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
+    }
+    metadataCmd.on("close", (code) => {
+      if (code === 0) {
+        core.info("Metadata fetched successfully.");
+        resolve(output);
+      } else {
+        reject(`Metadata process exited with code ${code}`);
+      }
+    });
+    metadataCmd.on("error", reject);
+  });
+}
+
+/**
+ * Returns a new object containing only the specified fields from the source object.
+ */
+function filterFields<T extends object>(source: T):any {
+  const fields = [
+    "ApplicationCategory",
+    "Pricing",
+    "Visibility",
+    "TargetPublishMode",
+    "TargetPublishDate",
+    "Listings",
+    "HardwarePreferences",
+    "AutomaticBackupEnabled",
+    "CanInstallOnRemovableMedia",
+    "IsGameDvrEnabled",
+    "GamingOptions",
+    "HasExternalInAppProducts",
+    "MeetAccessibilityGuidelines",
+    "ApplicationPackages",
+    "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
+    "AllowTargetFutureDeviceFamilies",
+    "Trailers",
+  ];
+  const result: { [key: string]: unknown } = {};
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(source, field)) {
+      result[field] = (source as any)[field];
+    }
+  }
+  return result;
+}
+
+/**
+ * Recursively replaces all fields in target with fields from source.
+ * Fields in source will overwrite those in target (deep merge).
+ * Fields not present in source are left unchanged in target.
+ * @param target The larger JSON object to be modified.
+ * @param source The smaller JSON object whose fields will overwrite target.
+ */
+function replaceFields(target: any, source: any): void {
+  if (typeof target !== "object" || typeof source !== "object" || target === null || source === null) {
+    return;
+  }
+  for (const key of Object.keys(source)) {
+    if (
+      typeof source[key] === "object" &&
+      source[key] !== null &&
+      typeof target[key] === "object" &&
+      target[key] !== null &&
+      !Array.isArray(source[key]) &&
+      !Array.isArray(target[key])
+    ) {
+      replaceFields(target[key], source[key]);
+    } else {
+      target[key] = source[key];
+    }
+  }
+}
+
 (async function main() {
 try {
     core.info("Starting the action...");
@@ -96,6 +204,7 @@ try {
     const clientId = core.getInput("client-id");
     const clientSecret = core.getInput("client-secret");
     const packagePath = core.getInput("package-path");
+    const photosPath = core.getInput("photos-path");
     const command = core.getInput("command");
     if (!productId || !sellerId || !tenantId || !clientId || !clientSecret) {
       core.setFailed("Missing required inputs");
@@ -107,32 +216,15 @@ try {
     core.info("Configuration completed successfully.");
     
     if(command==="getmetadata") {
-      core.info("Fetching metadata...");
-      const metadataCmd = exec(`msstore submission get ${productId}`);
-      if (metadataCmd.stdout) {
-        metadataCmd.stdout.on("data", (data) => process.stdout.write(data));
-      }
-      if (metadataCmd.stderr) {
-        metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
-      }
-      await new Promise((resolve, reject) => {
-        metadataCmd.on("close", (code) => {
-          if (code === 0) resolve(undefined);
-          else reject(`Metadata process exited with code ${code}`);
-        });
-        metadataCmd.on("error", reject);
-      });
-      core.info("Metadata fetched successfully.");
+      console.log(await fetchMetadata(productId));
     }
     else if(command==="publish") {
       //143 need packager too or check current msix consistent with metadata if msix provided
       //143 currenly assume msix is provided and is consistent with metadata
 
       const jsonFilePath = core.getInput("json-file-path") || "";
-      let metadata_given_json: any;
-      let metadata_given_string: string;
-      let metadata_present_json: any;
-      let metadata_present_string: string;
+      let metadata_new_json: any;
+      let metadata_old_json: any;
       if (!jsonFilePath) {
         core.warning("Missing input: json-file-path assuming metadata need not be changed");
       }
@@ -149,11 +241,10 @@ try {
   
         core.info("Reading JSON file for metadata");
         try {
-          metadata_given_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
+          metadata_new_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
             /"(?:[^"\\]|\\.)*"/g,
             (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
-          metadata_given_string = JSON.stringify(metadata_given_json, null, 2);
           core.info("JSON file read successfully. ...");
         } 
         catch (error) {
@@ -167,12 +258,11 @@ try {
 
         
         try{
-          // metadata_present_json = "";
-          metadata_present_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
+          // metadata_old_json = "";
+          metadata_old_json = JSON.parse((await fetchMetadata(productId)).replace(
             /"(?:[^"\\]|\\.)*"/g,
-            (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
+            (str:string) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
-          metadata_present_string = JSON.stringify(metadata_present_json, null, 2);
           core.info("Current metadata fetched successfully.");
         }
         catch (error){
@@ -180,12 +270,22 @@ try {
           core.warning(error as string);
           return; //143 ideally exit to no check.
         }
-        
-        let isDifferent = metadata_present_string !== metadata_given_string;
+        // compare with json list all which are required to be changed and manually set them
+        metadata_new_json["Listings"]["en-us"]["BaseListing"]["Description"] = `my own plssss...${metadata_old_json["Id"]}`;
+         
+
+        const filteredMetadata_new = filterFields(metadata_new_json);
+        const filteredMetadata_old = filterFields(metadata_old_json);
+
+        let filteredMetadata_string_new = JSON.stringify(filteredMetadata_new, null, 2);
+        let filteredMetadata_string_old = JSON.stringify(filteredMetadata_old, null, 2);
+
+        // filter and check if metadata is different
+        let isDifferent = filteredMetadata_string_old !== filteredMetadata_string_new;
 
         if (isDifferent) {
           core.info("Differences found between listing assets and provided assets:");
-          const differences = diff.createPatch("assets", metadata_given_string, metadata_present_string, "given", "present");
+          const differences = diff.createPatch("assets", filteredMetadata_string_new, filteredMetadata_string_old, "new", "old");
           core.info("Metadata different from the provided JSON file. Proceeding with updating the metadata. Here are the differences:");
           const diffLines = differences.split('\n');
           diffLines.forEach((line: string) => {
@@ -193,42 +293,59 @@ try {
             core.info(line);
           }
           });
-          // compare with json list all which are required to be changed and manually set them
-          metadata_present_json["Listings"]["en-us"]["BaseListing"]["Description"] = "my own plssss...12";
-          const fieldsToCopy = [
-            "Listings",
-            "Pricing",
-            "Properties",
-            "Visibility",
-            "ApplicationCategory",
-            "AllowTargetFutureDeviceFamilies",
-            "ApplicationPackages",
-            "Keywords"
-          ];
 
-          // Create a new object with only the specified fields from metadata_present_json
-          const filteredMetadata: any = {};
-          for (const field of fieldsToCopy) {
-            if (metadata_present_json.hasOwnProperty(field)) {
-              filteredMetadata[field] = metadata_present_json[field];
+          // Pending delete the existing submission if any
+          if (filteredMetadata_new.ApplicationPackages && Array.isArray(filteredMetadata_new.ApplicationPackages)) {
+            for (const pkg of filteredMetadata_new.ApplicationPackages) {
+              pkg.Status = "PendingDelete";
+            }
+          }
+          // Set FileStatus to "PendingDelete" for all images in Listings > en-us > BaseListing > Images
+          const images = filteredMetadata_new?.Listings?.["en-us"]?.BaseListing?.Images;
+          if (Array.isArray(images)) {
+          for (const img of images) {
+            img.FileStatus = "PendingDelete";
+          }
+          }
+          // Update the metadata with the new values
+          // Add entries for each file in packagePath directory to ApplicationPackages
+          const packageFiles = fs.readdirSync(packagePath);
+          for (const packEntry of packageFiles) {
+          const entry = {
+            fileName: packEntry,
+            fileStatus: "PendingUpload",
+          };
+          filteredMetadata_new.ApplicationPackages.push(entry);
+          }
+
+          
+          // add all photos
+
+          const photoFiles: string[] = [];
+          if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+            for (const file of fs.readdirSync(photosPath)) {
+              // Try to infer image type from filename or use a default
+              let type =  "Screenshot";
+              filteredMetadata_new.Listings["en-us"].BaseListing.Images.push({
+                FileStatus: "PendingUpload",
+                FileName: file,
+                ImageType: type
+              });
+              photoFiles.push(file);
             }
           }
 
-          // You can now use filteredMetadata as your new JSON object
-          core.info("Filtered metadata fields copied: " + JSON.stringify((filteredMetadata)));
-          
-          metadata_given_string = JSON.stringify(filteredMetadata, null, 2);
+
+
           // Escape inner double quotes for the shell
-          const escapedJson = metadata_given_string
+          filteredMetadata_string_new = JSON.stringify(filteredMetadata_new, null, 2)
+          const escaped_filtered_new = filteredMetadata_string_new
           .replace(/(["\\])/g, '\\$1')
           .replace(/(\r\n|\r|\n)/g, '');
 
           core.info("Updating metadata with the provided JSON file...");
           try {
-            // resolve issues with the below command
-            // possible issue with cli or use case
-
-            const P =  exec(`msstore submission updateMetadata -v ${productId} "${escapedJson}"`);
+            const P =  exec(`msstore submission updateMetadata -v ${productId} "${escaped_filtered_new}"`);
             if (P.stdout) {
               P.stdout.on("data", (data) => process.stdout.write(data));
             }
@@ -254,13 +371,14 @@ try {
         }
       }
 
+      // Fetch the upload URL for the package
+      core.info("Fetching upload URL for the package...");
       try{
-        // metadata_present_json = "";
-        metadata_present_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
+        // metadata_new_json = "";
+        metadata_new_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
           /"(?:[^"\\]|\\.)*"/g,
           (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
         ));
-        metadata_present_string = JSON.stringify(metadata_present_json, null, 2);
         core.info("Current metadata fetched successfully.");
       }
       catch (error){
@@ -268,10 +386,17 @@ try {
         core.warning(error as string);
         return; //143 ideally exit to no check.
       }
-      const uploadUrl = metadata_present_json["FileUploadUrl"];
+      const uploadUrl = metadata_new_json["FileUploadUrl"];
 
       
       core.info(`Zipping files at package path: ${packagePath}`);
+
+      // Also include files from the "photos" path if provided
+      if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+        core.info(`Including photos from: ${photosPath}`);
+      } else if (photosPath) {
+        core.warning(`Photos path "${photosPath}" does not exist or is not a directory. Skipping.`);
+      }
       const zipFilePath = path.join(process.cwd(), "package.zip");
       await new Promise<void>((resolve, reject) => {
         const output = fs.createWriteStream(zipFilePath);
@@ -285,12 +410,15 @@ try {
 
         archive.pipe(output);
         archive.directory(packagePath, false);
+        if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+          archive.directory(photosPath, false);
+        }
         archive.finalize();
       });
       core.info("Files zipped successfully.");
 
       //upload
-
+      console.log(`zip: ${zipFilePath}`);
       core.info(`Uploading package to ${uploadUrl}`);
       uploadFileToBlob(
         uploadUrl,
@@ -302,7 +430,7 @@ try {
 
 
       core.info("Publishing the submission...");
-      const out = exec(`msstore submission publish ${productId}`);
+      let out = exec(`msstore submission publish ${productId}`);
       if (out.stdout) {
         out.stdout.on("data", (data) => process.stdout.write(data));
       }
@@ -320,6 +448,20 @@ try {
       core.info("Submission published successfully.");
 
       //poll for status
+      out = exec(`msstore submission poll ${productId}`);
+      if (out.stdout) {
+        out.stdout.on("data", (data) => process.stdout.write(data));
+      }
+      if (out.stderr) {
+        out.stderr.on("data", (data) => process.stderr.write(data));
+      }
+      await new Promise((resolve, reject) => {
+        out.on("close", (code) => {
+        if (code === 0) resolve(undefined);
+        else reject(`Publish process exited with code ${code}`);
+        });
+        out.on("error", reject);
+      });
 
 
           }

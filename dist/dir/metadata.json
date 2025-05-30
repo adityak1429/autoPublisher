@@ -1,5 +1,4 @@
 {
-  "Id": "1152921505699335062",
   "ApplicationCategory": "HealthAndFitness",
   "Pricing": {
     "TrialPeriod": "TrialNeverExpires",
@@ -17,7 +16,7 @@
     "en-us": {
       "BaseListing": {
         "Keywords": [],
-        "Description": "my own?",
+        "Description": "my own plssss...12",
         "Features": [],
         "ReleaseNotes": "",
         "Images": [
@@ -60,8 +59,8 @@
     }
   },
   "HardwarePreferences": [],
-  "AutomaticBackupEnabled": true,
-  "CanInstallOnRemovableMedia": true,
+  "AutomaticBackupEnabled": false,
+  "CanInstallOnRemovableMedia": false,
   "IsGameDvrEnabled": false,
   "GamingOptions": [
     {
@@ -77,22 +76,10 @@
   ],
   "HasExternalInAppProducts": false,
   "MeetAccessibilityGuidelines": false,
-  "NotesForCertification": "",
-  "Status": "PendingCommit",
-  "StatusDetails": {
-    "Errors": [],
-    "Warnings": [
-      {
-        "Code": "SalesUnsupportedWarning",
-        "Details": "The sales resource is no longer supported. To view or edit the sales data for this submission, use the Dev Center dashboard."
-      }
-    ],
-    "CertificationReports": []
-  },
   "ApplicationPackages": [
     {
       "FileName": "pkota.FitnessFuel_1.0.2.0_x86__4fxr7wcjkzrjg_1.msix",
-      "FileStatus": "Uploaded",
+      "FileStatus": "PendingDelete",
       "Id": "2000000000086830858",
       "Version": "1.0.2.0",
       "Architecture": "neutral",
@@ -106,26 +93,13 @@
       "MinimumSystemRam": "None"
     }
   ],
-  "PackageDeliveryOptions": {
-    "PackageRollout": {
-      "IsPackageRollout": false,
-      "PackageRolloutPercentage": 0,
-      "PackageRolloutStatus": "PackageRolloutNotStarted",
-      "FallbackSubmissionId": "0"
-    },
-    "IsMandatoryUpdate": false,
-    "MandatoryUpdateEffectiveDate": "1601-01-01T00:00:00Z"
-  },
-  "EnterpriseLicensing": "None",
-  "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies": true,
+  "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies": false,
   "AllowTargetFutureDeviceFamilies": {
     "Desktop": true,
     "Mobile": false,
     "Xbox": false,
     "Team": false,
-    "Holographic": true,
-    "7": false
+    "Holographic": true
   },
-  "FriendlyName": "Submission 3",
   "Trailers": []
 }

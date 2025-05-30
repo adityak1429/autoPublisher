@@ -76274,6 +76274,59 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
     throw new Error(`Upload failed: ${err.message || "Unknown error"}`);
   }
 }
+async function fetchMetadata(productId) {
+  core.info("Fetching metadata...");
+  return await new Promise((resolve, reject) => {
+    const metadataCmd = (0, import_child_process.exec)(`msstore submission get ${productId}`);
+    let output = "";
+    if (metadataCmd.stdout) {
+      metadataCmd.stdout.on("data", (data) => {
+        process.stdout.write(data);
+        output += data;
+      });
+    }
+    if (metadataCmd.stderr) {
+      metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
+    }
+    metadataCmd.on("close", (code) => {
+      if (code === 0) {
+        core.info("Metadata fetched successfully.");
+        resolve(output);
+      } else {
+        reject(`Metadata process exited with code ${code}`);
+      }
+    });
+    metadataCmd.on("error", reject);
+  });
+}
+function filterFields(source) {
+  const fields = [
+    "ApplicationCategory",
+    "Pricing",
+    "Visibility",
+    "TargetPublishMode",
+    "TargetPublishDate",
+    "Listings",
+    "HardwarePreferences",
+    "AutomaticBackupEnabled",
+    "CanInstallOnRemovableMedia",
+    "IsGameDvrEnabled",
+    "GamingOptions",
+    "HasExternalInAppProducts",
+    "MeetAccessibilityGuidelines",
+    "ApplicationPackages",
+    "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
+    "AllowTargetFutureDeviceFamilies",
+    "Trailers"
+  ];
+  const result = {};
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(source, field)) {
+      result[field] = source[field];
+    }
+  }
+  return result;
+}
 (async function main() {
   try {
     core.info("Starting the action...");
@@ -76283,6 +76336,7 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
     const clientId = core.getInput("client-id");
     const clientSecret = core.getInput("client-secret");
     const packagePath = core.getInput("package-path");
+    const photosPath = core.getInput("photos-path");
     const command = core.getInput("command");
     if (!productId || !sellerId || !tenantId || !clientId || !clientSecret) {
       core.setFailed("Missing required inputs");
@@ -76290,28 +76344,11 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
     }
     core.info("Configuration completed successfully.");
     if (command === "getmetadata") {
-      core.info("Fetching metadata...");
-      const metadataCmd = (0, import_child_process.exec)(`msstore submission get ${productId}`);
-      if (metadataCmd.stdout) {
-        metadataCmd.stdout.on("data", (data) => process.stdout.write(data));
-      }
-      if (metadataCmd.stderr) {
-        metadataCmd.stderr.on("data", (data) => process.stderr.write(data));
-      }
-      await new Promise((resolve, reject) => {
-        metadataCmd.on("close", (code) => {
-          if (code === 0) resolve(void 0);
-          else reject(`Metadata process exited with code ${code}`);
-        });
-        metadataCmd.on("error", reject);
-      });
-      core.info("Metadata fetched successfully.");
+      console.log(await fetchMetadata(productId));
     } else if (command === "publish") {
       const jsonFilePath = core.getInput("json-file-path") || "";
-      let metadata_given_json;
-      let metadata_given_string;
-      let metadata_present_json;
-      let metadata_present_string;
+      let metadata_new_json;
+      let metadata_old_json;
       if (!jsonFilePath) {
         core.warning("Missing input: json-file-path assuming metadata need not be changed");
       } else {
@@ -76324,11 +76361,10 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         }
         core.info("Reading JSON file for metadata");
         try {
-          metadata_given_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
+          metadata_new_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
             /"(?:[^"\\]|\\.)*"/g,
             (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
-          metadata_given_string = JSON.stringify(metadata_given_json, null, 2);
           core.info("JSON file read successfully. ...");
         } catch (error) {
           core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
@@ -76337,21 +76373,25 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         }
         core.info("Fetching current metadata for comparison...");
         try {
-          metadata_present_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
+          metadata_old_json = JSON.parse((await fetchMetadata(productId)).replace(
             /"(?:[^"\\]|\\.)*"/g,
             (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
-          metadata_present_string = JSON.stringify(metadata_present_json, null, 2);
           core.info("Current metadata fetched successfully.");
         } catch (error) {
           core.warning("Failed to parse metadata. Skipping comparison.");
           core.warning(error);
           return;
         }
-        let isDifferent = metadata_present_string !== metadata_given_string;
+        metadata_new_json["Listings"]["en-us"]["BaseListing"]["Description"] = `my own plssss...${metadata_old_json["Id"]}`;
+        const filteredMetadata_new = filterFields(metadata_new_json);
+        const filteredMetadata_old = filterFields(metadata_old_json);
+        let filteredMetadata_string_new = JSON.stringify(filteredMetadata_new, null, 2);
+        let filteredMetadata_string_old = JSON.stringify(filteredMetadata_old, null, 2);
+        let isDifferent = filteredMetadata_string_old !== filteredMetadata_string_new;
         if (isDifferent) {
           core.info("Differences found between listing assets and provided assets:");
-          const differences = diff.createPatch("assets", metadata_given_string, metadata_present_string, "given", "present");
+          const differences = diff.createPatch("assets", filteredMetadata_string_new, filteredMetadata_string_old, "new", "old");
           core.info("Metadata different from the provided JSON file. Proceeding with updating the metadata. Here are the differences:");
           const diffLines = differences.split("\n");
           diffLines.forEach((line) => {
@@ -76359,29 +76399,42 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
               core.info(line);
             }
           });
-          metadata_present_json["Listings"]["en-us"]["BaseListing"]["Description"] = "my own plssss...12";
-          const fieldsToCopy = [
-            "Listings",
-            "Pricing",
-            "Properties",
-            "Visibility",
-            "ApplicationCategory",
-            "AllowTargetFutureDeviceFamilies",
-            "ApplicationPackages",
-            "Keywords"
-          ];
-          const filteredMetadata = {};
-          for (const field of fieldsToCopy) {
-            if (metadata_present_json.hasOwnProperty(field)) {
-              filteredMetadata[field] = metadata_present_json[field];
+          if (filteredMetadata_new.ApplicationPackages && Array.isArray(filteredMetadata_new.ApplicationPackages)) {
+            for (const pkg of filteredMetadata_new.ApplicationPackages) {
+              pkg.Status = "PendingDelete";
             }
           }
-          core.info("Filtered metadata fields copied: " + JSON.stringify(filteredMetadata));
-          metadata_given_string = JSON.stringify(filteredMetadata, null, 2);
-          const escapedJson = metadata_given_string.replace(/(["\\])/g, "\\$1").replace(/(\r\n|\r|\n)/g, "");
+          const images = filteredMetadata_new?.Listings?.["en-us"]?.BaseListing?.Images;
+          if (Array.isArray(images)) {
+            for (const img of images) {
+              img.FileStatus = "PendingDelete";
+            }
+          }
+          const packageFiles = fs.readdirSync(packagePath);
+          for (const packEntry of packageFiles) {
+            const entry = {
+              fileName: packEntry,
+              fileStatus: "PendingUpload"
+            };
+            filteredMetadata_new.ApplicationPackages.push(entry);
+          }
+          const photoFiles = [];
+          if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+            for (const file of fs.readdirSync(photosPath)) {
+              let type = "Screenshot";
+              filteredMetadata_new.Listings["en-us"].BaseListing.Images.push({
+                FileStatus: "PendingUpload",
+                FileName: file,
+                ImageType: type
+              });
+              photoFiles.push(file);
+            }
+          }
+          filteredMetadata_string_new = JSON.stringify(filteredMetadata_new, null, 2);
+          const escaped_filtered_new = filteredMetadata_string_new.replace(/(["\\])/g, "\\$1").replace(/(\r\n|\r|\n)/g, "");
           core.info("Updating metadata with the provided JSON file...");
           try {
-            const P = (0, import_child_process.exec)(`msstore submission updateMetadata -v ${productId} "${escapedJson}"`);
+            const P = (0, import_child_process.exec)(`msstore submission updateMetadata -v ${productId} "${escaped_filtered_new}"`);
             if (P.stdout) {
               P.stdout.on("data", (data) => process.stdout.write(data));
             }
@@ -76405,19 +76458,23 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         }
       }
       try {
-        metadata_present_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
+        metadata_new_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
           /"(?:[^"\\]|\\.)*"/g,
           (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
         ));
-        metadata_present_string = JSON.stringify(metadata_present_json, null, 2);
         core.info("Current metadata fetched successfully.");
       } catch (error) {
         core.warning("Failed to parse metadata. Skipping comparison.");
         core.warning(error);
         return;
       }
-      const uploadUrl = metadata_present_json["FileUploadUrl"];
+      const uploadUrl = metadata_new_json["FileUploadUrl"];
       core.info(`Zipping files at package path: ${packagePath}`);
+      if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+        core.info(`Including photos from: ${photosPath}`);
+      } else if (photosPath) {
+        core.warning(`Photos path "${photosPath}" does not exist or is not a directory. Skipping.`);
+      }
       const zipFilePath = path.join(process.cwd(), "package.zip");
       await new Promise((resolve, reject) => {
         const output = fs.createWriteStream(zipFilePath);
@@ -76429,9 +76486,13 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         archive.on("error", (err) => reject(err));
         archive.pipe(output);
         archive.directory(packagePath, false);
+        if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+          archive.directory(photosPath, false);
+        }
         archive.finalize();
       });
       core.info("Files zipped successfully.");
+      console.log(`zip: ${zipFilePath}`);
       core.info(`Uploading package to ${uploadUrl}`);
       uploadFileToBlob(
         uploadUrl,
@@ -76441,7 +76502,7 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         console.log(`Upload complete! ETag: ${etag}`);
       }).catch(console.error);
       core.info("Publishing the submission...");
-      const out = (0, import_child_process.exec)(`msstore submission publish ${productId}`);
+      let out = (0, import_child_process.exec)(`msstore submission publish ${productId}`);
       if (out.stdout) {
         out.stdout.on("data", (data) => process.stdout.write(data));
       }
@@ -76456,6 +76517,20 @@ async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
         out.on("error", reject);
       });
       core.info("Submission published successfully.");
+      out = (0, import_child_process.exec)(`msstore submission poll ${productId}`);
+      if (out.stdout) {
+        out.stdout.on("data", (data) => process.stdout.write(data));
+      }
+      if (out.stderr) {
+        out.stderr.on("data", (data) => process.stderr.write(data));
+      }
+      await new Promise((resolve, reject) => {
+        out.on("close", (code) => {
+          if (code === 0) resolve(void 0);
+          else reject(`Publish process exited with code ${code}`);
+        });
+        out.on("error", reject);
+      });
     } else {
       core.setFailed("Invalid command. Use 'getmetadata' or 'publish'.");
       return;
