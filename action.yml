@@ -3,7 +3,7 @@ author: 'K Sai Aditya'
 description: 'Update apps in Microsoft Store'
 inputs:
   command:
-    description: 'The command to execute. Available command: getmetadata, getmetadataandfilter, publish
+    description: 'The command to execute. Available command: getmetadata, getmetadataandfilter, publish'
     required: true
     default: 'publish'
   product-id:
