@@ -3,9 +3,9 @@ author: 'K Sai Aditya'
 description: 'Update apps in Microsoft Store'
 inputs:
   command:
-    description: 'The command to execute. Available command: `configure`, `get`, `update`, `poll`, or `publish`.'
+    description: 'The command to execute. Available command: getmetadata, getmetadataandfilter, publish
     required: true
-    default: 'configure'
+    default: 'publish'
   product-id:
     description: 'Product Id'
     required: true
@@ -22,7 +22,10 @@ inputs:
     description: 'App Client secret'
     required: true
   package-path:
-    description: 'Path to the app package to upload'
+    description: 'Path to the app directory to upload'
+    required: true
+  photos-path:
+    description: 'Path to the photos directory to upload'
     required: true
   json-file-path:
     description: 'Path to the JSON file containing app metadata'

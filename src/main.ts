@@ -8,31 +8,31 @@ const axios = (require("axios")).default;
 const fs = require("fs");
 import { BlockBlobClient } from "@azure/storage-blob";
 
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    if (!value) {
-      this.setFailed(`Missing environment variable for ${name}`);
-      process.exit(1);
-    }
-    return value;
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  }
-};
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     if (!value) {
+//       this.setFailed(`Missing environment variable for ${name}`);
+//       process.exit(1);
+//     }
+//     return value;
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   }
+// };
 
 /** Expected imageType values */
 const imageType: string[] = [
@@ -211,12 +211,21 @@ try {
       return;
     }
 
-    // await execAsync(`msstore reconfigure -t ${tenantId} -c ${clientId} -cs ${clientSecret} -s ${sellerId}`);
+    await execAsync(`msstore reconfigure -t ${tenantId} -c ${clientId} -cs ${clientSecret} -s ${sellerId}`);
     
     core.info("Configuration completed successfully.");
     
     if(command==="getmetadata") {
       console.log(await fetchMetadata(productId));
+    }
+    else if (command==="getmetadataandfilter") {
+      const metadata = await fetchMetadata(productId);
+      const metadata_json = JSON.parse(metadata.replace(
+        /"(?:[^"\\]|\\.)*"/g,
+        (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
+      ));
+      const filteredMetadata = filterFields(metadata_json);
+      console.log(JSON.stringify(filteredMetadata, null, 2));
     }
     else if(command==="publish") {
       //143 need packager too or check current msix consistent with metadata if msix provided
@@ -270,9 +279,8 @@ try {
           core.warning(error as string);
           return; //143 ideally exit to no check.
         }
-        // compare with json list all which are required to be changed and manually set them
-        metadata_new_json["Listings"]["en-us"]["BaseListing"]["Description"] = `my own plssss...${metadata_old_json["Id"]}`;
-         
+
+        
 
         const filteredMetadata_new = filterFields(metadata_new_json);
         const filteredMetadata_old = filterFields(metadata_old_json);

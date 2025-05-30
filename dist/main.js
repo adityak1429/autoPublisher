@@ -76383,7 +76383,6 @@ function filterFields(source) {
           core.warning(error);
           return;
         }
-        metadata_new_json["Listings"]["en-us"]["BaseListing"]["Description"] = `my own plssss...${metadata_old_json["Id"]}`;
         const filteredMetadata_new = filterFields(metadata_new_json);
         const filteredMetadata_old = filterFields(metadata_old_json);
         let filteredMetadata_string_new = JSON.stringify(filteredMetadata_new, null, 2);
@@ -76457,6 +76456,7 @@ function filterFields(source) {
           core.info("Listing assets are identical to the provided JSON file. No action needed.");
         }
       }
+      core.info("Fetching upload URL for the package...");
       try {
         metadata_new_json = JSON.parse((await execAsync(`msstore submission get ${productId}`)).stdout.replace(
           /"(?:[^"\\]|\\.)*"/g,
