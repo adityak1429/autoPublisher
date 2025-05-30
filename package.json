@@ -5,13 +5,16 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-  "build": "esbuild src/main.ts --bundle --platform=node --outfile=dist/main.js",
-  "rough": "esbuild src/rough.ts --bundle --platform=node --outfile=dist/ain.js",
-  "start": "cd dist && node main.js",
-  "mod": "esbuild src/main.ts --bundle --platform=node --outfile=dist/main.js && cd dist && node main.js"
+    "build": "esbuild src/main.ts --bundle --platform=node --outfile=dist/main.js",
+    "rough": "esbuild src/rough.ts --bundle --platform=node --outfile=dist/ain.js",
+    "start": "cd dist && node main.js",
+    "mod": "esbuild src/main.ts --bundle --platform=node --outfile=dist/main.js && cd dist && node main.js"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
+    "@azure/storage-blob": "^12.27.0",
+    "archiver": "^7.0.1",
+    "axios": "^1.9.0",
     "diff": "^8.0.2",
     "dotenv": "^16.5.0"
   }
