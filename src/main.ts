@@ -291,9 +291,7 @@ try {
           core.info("Metadata different from the provided JSON file. Proceeding with updating the metadata. Here are the differences:");
           const diffLines = differences.split('\n');
           diffLines.forEach((line: string) => {
-          if (line.startsWith('+') || line.startsWith('-')) {
             core.info(line);
-          }
           });
 
           // Pending delete the existing submission if any
