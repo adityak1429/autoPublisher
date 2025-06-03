@@ -117,7 +117,6 @@ async function fetchMetadata(productId: string): Promise<string> {
     let output = "";
     if (metadataCmd.stdout) {
       metadataCmd.stdout.on("data", (data) => {
-        process.stdout.write(data);
         output += data;
       });
     }
@@ -168,33 +167,6 @@ function filterFields<T extends object>(source: T):any {
   return result;
 }
 
-/**
- * Recursively replaces all fields in target with fields from source.
- * Fields in source will overwrite those in target (deep merge).
- * Fields not present in source are left unchanged in target.
- * @param target The larger JSON object to be modified.
- * @param source The smaller JSON object whose fields will overwrite target.
- */
-function replaceFields(target: any, source: any): void {
-  if (typeof target !== "object" || typeof source !== "object" || target === null || source === null) {
-    return;
-  }
-  for (const key of Object.keys(source)) {
-    if (
-      typeof source[key] === "object" &&
-      source[key] !== null &&
-      typeof target[key] === "object" &&
-      target[key] !== null &&
-      !Array.isArray(source[key]) &&
-      !Array.isArray(target[key])
-    ) {
-      replaceFields(target[key], source[key]);
-    } else {
-      target[key] = source[key];
-    }
-  }
-}
-
 (async function main() {
 try {
     core.info("Starting the action...");
@@ -216,16 +188,15 @@ try {
     core.info("Configuration completed successfully.");
     
     if(command==="getmetadata") {
-      console.log(await fetchMetadata(productId));
+      core.info(await fetchMetadata(productId));
     }
-    else if (command==="getmetadataandfilter") {
+    else if (command==="json_init") {
       const metadata = await fetchMetadata(productId);
       const metadata_json = JSON.parse(metadata.replace(
         /"(?:[^"\\]|\\.)*"/g,
         (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
       ));
-      const filteredMetadata = filterFields(metadata_json);
-      console.log(JSON.stringify(filteredMetadata, null, 2));
+      core.info(JSON.stringify(filterFields(metadata_json),null,2));
     }
     else if(command==="publish") {
       //143 need packager too or check current msix consistent with metadata if msix provided
@@ -244,7 +215,7 @@ try {
           core.info("Existing submission deleted successfully.");
         }
         catch (error) {
-          core.warning("Failed to delete existing submission. Continuing with update.");
+          core.warning(`Failed to delete existing submission/ there is no existing submission. Continuing with update. ${error}`);
         }
 
   
@@ -277,7 +248,7 @@ try {
         catch (error){
           core.warning("Failed to parse metadata. Skipping comparison.");
           core.warning(error as string);
-          return; //143 ideally exit to no check.
+          return; //ideally exit to no check.
         }
 
         
@@ -308,13 +279,18 @@ try {
               pkg.Status = "PendingDelete";
             }
           }
-          // Set FileStatus to "PendingDelete" for all images in Listings > en-us > BaseListing > Images
-          const images = filteredMetadata_new?.Listings?.["en-us"]?.BaseListing?.Images;
-          if (Array.isArray(images)) {
-          for (const img of images) {
-            img.FileStatus = "PendingDelete";
-          }
-          }
+          // Set FileStatus to "PendingDelete" for all images 
+            const listings = filteredMetadata_new?.Listings;
+            if (listings && typeof listings === "object") {
+            for (const locale of Object.keys(listings)) {
+              const images = listings[locale]?.BaseListing?.Images;
+              if (Array.isArray(images)) {
+              for (const img of images) {
+                img.FileStatus = "PendingDelete";
+              }
+              }
+            }
+            }
           // Update the metadata with the new values
           // Add entries for each file in packagePath directory to ApplicationPackages
           const packageFiles = fs.readdirSync(packagePath);
@@ -333,12 +309,21 @@ try {
           if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
             for (const file of fs.readdirSync(photosPath)) {
               // Try to infer image type from filename or use a default
-              let type =  "Screenshot";
-              filteredMetadata_new.Listings["en-us"].BaseListing.Images.push({
+              let type = "Screenshot";
+              // Add the image entry to all locales in Listings
+              for (const locale of Object.keys(filteredMetadata_new.Listings)) {
+              if (
+                filteredMetadata_new.Listings[locale] &&
+                filteredMetadata_new.Listings[locale].BaseListing &&
+                Array.isArray(filteredMetadata_new.Listings[locale].BaseListing.Images)
+              ) {
+                filteredMetadata_new.Listings[locale].BaseListing.Images.push({
                 FileStatus: "PendingUpload",
                 FileName: file,
                 ImageType: type
-              });
+                });
+              }
+              }
               photoFiles.push(file);
             }
           }
@@ -353,7 +338,7 @@ try {
 
           core.info("Updating metadata with the provided JSON file...");
           try {
-            const P =  exec(`msstore submission updateMetadata -v ${productId} "${escaped_filtered_new}"`);
+            const P =  exec(`msstore submission updateMetadata ${productId} "${escaped_filtered_new}"`);
             if (P.stdout) {
               P.stdout.on("data", (data) => process.stdout.write(data));
             }
@@ -363,14 +348,14 @@ try {
             await new Promise((resolve, reject) => {
               P.on("close", (code) => {
               if (code === 0) resolve(undefined);
-              else reject(`Publish process exited with code ${code}`);
+              else reject(`updateMetadata process exited with code ${code}`);
               });
               P.on("error", reject);
             });
           }
           catch (error) {
             core.setFailed(`Failed to update metadata: ${error}`);
-            return; //143 ideally exit to no check.
+            return; //ideally exit to no check?.
           }
           core.info("Metadata updated successfully.");
         }
@@ -392,7 +377,7 @@ try {
       catch (error){
         core.warning("Failed to parse metadata. Skipping comparison.");
         core.warning(error as string);
-        return; //143 ideally exit to no check.
+        return; //ideally exit to no check?.
       }
       const uploadUrl = metadata_new_json["FileUploadUrl"];
 
@@ -426,14 +411,14 @@ try {
       core.info("Files zipped successfully.");
 
       //upload
-      console.log(`zip: ${zipFilePath}`);
+      core.info(`zip: ${zipFilePath}`);
       core.info(`Uploading package to ${uploadUrl}`);
       uploadFileToBlob(
         uploadUrl,
         zipFilePath,
-        (progress) => console.log(`Upload progress: ${progress}%`)
+        (progress) => core.info(`Upload progress: ${progress}%`)
       ).then((etag) => {
-        console.log(`Upload complete! ETag: ${etag}`);
+        core.info(`Upload complete! ETag: ${etag}`);
       }).catch(console.error);
 
 
@@ -474,7 +459,7 @@ try {
 
           }
     else{
-      core.setFailed("Invalid command. Use 'getmetadata' or 'publish'.");
+      core.setFailed("Invalid command. Use 'getmetadata' or 'publish' or 'json_init'.");
       return;
     }
 

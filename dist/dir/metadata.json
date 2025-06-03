@@ -16,7 +16,7 @@
     "en-us": {
       "BaseListing": {
         "Keywords": [],
-        "Description": "my own plssss...12",
+        "Description": "FitnessFuel is a comprehensive health and fitness application designed to help users achieve their wellness goals through a combination of intuitive tracking, personalized recommendations, and motivational features. Whether you are a beginner looking to start your fitness journey or an experienced athlete aiming to optimize your performance, FitnessFuel provides the tools and insights you need to succeed.\n\nWith FitnessFuel, users can easily log workouts, monitor progress, and set achievable goals. The app supports a wide range of activities, including running, cycling, strength training, yoga, and more, allowing users to customize their routines according to their preferences and fitness levels. Detailed analytics and progress charts help users visualize their improvements over time, making it easier to stay motivated and on track.\n\nNutrition is a key component of any fitness plan, and FitnessFuel offers robust meal tracking and calorie counting features. Users can log their daily food intake, track macronutrients, and receive personalized meal suggestions based on dietary preferences and goals. The app also includes a comprehensive food database, making it simple to find and add meals, snacks, and beverages.\n\nFitnessFuel’s personalized recommendations are powered by advanced algorithms that analyze user data to suggest workouts, meal plans, and wellness tips tailored to individual needs. The app adapts as users progress, ensuring that recommendations remain relevant and challenging. Integration with wearable devices and health platforms allows users to sync data seamlessly, providing a holistic view of their health and activity.\n\nMotivation is at the heart of FitnessFuel. The app features daily challenges, achievement badges, and social sharing options to keep users engaged and inspired. Users can connect with friends, join fitness communities, and participate in group challenges to foster a sense of accountability and camaraderie. In-app reminders and notifications help users stay consistent with their routines and celebrate milestones along the way.\n\nFitnessFuel also prioritizes accessibility and ease of use. The clean, intuitive interface ensures that users of all ages and experience levels can navigate the app effortlessly. Customizable dashboards, quick logging options, and detailed tutorials make it easy to get started and make the most of the app’s features.\n\nPrivacy and security are paramount. FitnessFuel is committed to protecting user data and offers robust privacy controls, allowing users to manage their information with confidence.\n\nWhether your goal is to lose weight, build muscle, improve endurance, or simply lead a healthier lifestyle, FitnessFuel is your all-in-one companion for health and fitness. Download FitnessFuel today and take the first step toward a stronger, healthier you.",
         "Features": [],
         "ReleaseNotes": "",
         "Images": [
@@ -56,6 +56,36 @@
         "Title": "FitnessFuel"
       },
       "PlatformOverrides": {}
+    },
+    "en": {
+      "BaseListing": {
+        "Keywords": [],
+        "Description": "english desc yayy.",
+        "Features": [],
+        "ReleaseNotes": "this is a test release note",
+        "Images": [
+
+        ],
+        "RecommendedHardware": [],
+        "MinimumHardware": [],
+        "Title": "FitnessFuel"
+      },
+      "PlatformOverrides": {}
+    },
+    "af": {
+      "BaseListing": {
+        "Keywords": [],
+        "Description": "afrikaans? desc yayy.",
+        "Features": [],
+        "ReleaseNotes": "this is a test release note",
+        "Images": [
+
+        ],
+        "RecommendedHardware": [],
+        "MinimumHardware": [],
+        "Title": "FitnessFuel"
+      },
+      "PlatformOverrides": {}
     }
   },
   "HardwarePreferences": [],
@@ -84,10 +114,9 @@
       "Version": "1.0.2.0",
       "Architecture": "neutral",
       "Languages": [
-        "en-US"
+        "en-US","en"
       ],
       "Capabilities": [
-        "runFullTrust"
       ],
       "MinimumDirectXVersion": "None",
       "MinimumSystemRam": "None"
