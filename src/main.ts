@@ -55,6 +55,28 @@ const imageType: string[] = [
 ];
  
 /**
+ * Validates that all BaseListing.Images[].ImageType in each Listings locale are valid.
+ * Throws an error if any invalid type is found.
+ */
+function validate_json(input: any): void {
+  if (!input || typeof input !== "object" || !input.Listings) {
+    throw new Error("Invalid input: Listings property missing.");
+  }
+  for (const locale of Object.keys(input.Listings)) {
+    const baseListing = input.Listings[locale]?.BaseListing;
+    if (!baseListing || !Array.isArray(baseListing.Images)) continue;
+    for (const img of baseListing.Images) {
+      if (!img.ImageType || !imageType.includes(img.ImageType)) {
+        throw new Error(
+          `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${imageType.join(", ")}`
+        );
+      }
+    }
+  }
+}
+
+
+/**
  * Uploads a file to Azure Blob Storage with progress reporting.
  * @param blobUri The SAS URL for the blob.
  * @param localFilePath The path to the local file.
@@ -226,6 +248,7 @@ try {
             (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
           core.info("JSON file read successfully. ...");
+          validate_json(metadata_new_json);
         } 
         catch (error) {
           core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
@@ -308,8 +331,8 @@ try {
           const photoFiles: string[] = [];
           if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
             for (const file of fs.readdirSync(photosPath)) {
-              // Try to infer image type from filename or use a default
-              let type = "Screenshot";
+              // Infer image type from filename prefix (e.g., Screenshot_abc.png)
+              let type = file.split("_")[0];
               // Add the image entry to all locales in Listings
               for (const locale of Object.keys(filteredMetadata_new.Listings)) {
               if (

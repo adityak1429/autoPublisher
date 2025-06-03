@@ -23,10 +23,10 @@ inputs:
     required: true
   package-path:
     description: 'Path to the app directory to upload'
-    required: true
+    required: false
   photos-path:
     description: 'Path to the photos directory to upload'
-    required: true
+    required: false
   json-file-path:
     description: 'Path to the JSON file containing app metadata'
     required: false

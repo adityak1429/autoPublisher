@@ -76237,6 +76237,40 @@ var core = {
     console.debug(`\u{1F41E} ${message}`);
   }
 };
+var imageType = [
+  "Screenshot",
+  "MobileScreenshot",
+  "XboxScreenshot",
+  "SurfaceHubScreenshot",
+  "HoloLensScreenshot",
+  "StoreLogo9x16",
+  "StoreLogoSquare",
+  "Icon",
+  "PromotionalArt16x9",
+  "PromotionalArtwork2400X1200",
+  "XboxBrandedKeyArt",
+  "XboxTitledHeroArt",
+  "XboxFeaturedPromotionalArt",
+  "SquareIcon358X358",
+  "BackgroundImage1000X800",
+  "PromotionalArtwork414X180"
+];
+function validate_json(input) {
+  if (!input || typeof input !== "object" || !input.Listings) {
+    throw new Error("Invalid input: Listings property missing.");
+  }
+  for (const locale of Object.keys(input.Listings)) {
+    const baseListing = input.Listings[locale]?.BaseListing;
+    if (!baseListing || !Array.isArray(baseListing.Images)) continue;
+    for (const img of baseListing.Images) {
+      if (!img.ImageType || !imageType.includes(img.ImageType)) {
+        throw new Error(
+          `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${imageType.join(", ")}`
+        );
+      }
+    }
+  }
+}
 async function uploadFileToBlob(blobUri, localFilePath, progressCallback) {
   const encodedUri = blobUri.replace(/\+/g, "%2B");
   const blobClient = new import_storage_blob.BlockBlobClient(encodedUri);
@@ -76360,7 +76394,6 @@ function filterFields(source) {
       } else {
         core.info("deleting existing submission if any");
         try {
-          await execAsync(`msstore submission delete ${productId} --no-confirm `);
           core.info("Existing submission deleted successfully.");
         } catch (error) {
           core.warning(`Failed to delete existing submission/ there is no existing submission. Continuing with update. ${error}`);
@@ -76372,11 +76405,13 @@ function filterFields(source) {
             (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
           core.info("JSON file read successfully. ...");
+          validate_json(metadata_new_json);
         } catch (error) {
           core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
           core.warning(error);
           return;
         }
+        return;
         core.info("Fetching current metadata for comparison...");
         try {
           metadata_old_json = JSON.parse((await fetchMetadata(productId)).replace(
