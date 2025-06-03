@@ -248,7 +248,6 @@ try {
             (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
           ));
           core.info("JSON file read successfully. ...");
-          validate_json(metadata_new_json);
         } 
         catch (error) {
           core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
@@ -359,6 +358,7 @@ try {
 
           core.info("Updating metadata with the provided JSON file...");
           try {
+            validate_json(filteredMetadata_new);
             const P =  exec(`msstore submission updateMetadata ${productId} "${escaped_filtered_new}"`);
             if (P.stdout) {
               P.stdout.on("data", (data) => process.stdout.write(data));
