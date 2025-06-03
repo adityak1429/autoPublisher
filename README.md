@@ -22,7 +22,9 @@ Complete support for flights add-ons etc
 # autoPublisher
 This is a github action to automate the publishing of updates to apps you own in microsoft store.
 
-Dont mess with applicationpackages, listings>..>images in the json, it is handled automatically.
+example repo where this is used > https://github.com/adityak1429/dummy_repo/
+
+Dont mess with applicationpackages, listings>..>images in the json, it is handled automatically -- > clean later.
 
 These are the inputs the action needs
 
