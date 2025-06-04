@@ -8,31 +8,40 @@ const axios = (require("axios")).default;
 const fs = require("fs");
 import { BlockBlobClient } from "@azure/storage-blob";
 
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     if (!value) {
-//       this.setFailed(`Missing environment variable for ${name}`);
-//       process.exit(1);
-//     }
-//     return value;
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// };
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    if (!value) {
+      this.setFailed(`Missing environment variable for ${name}`);
+      process.exit(1);
+    }
+    return value;
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  }
+};
+
+let productId: string = "";
+let sellerId: string  = "";
+let tenantId: string  = "";
+let clientId: string  = "";
+let clientSecret: string  = "";
+let packagePath: string = "";
+let photosPath: string = "";
+let command: string = "";
 
 /** Expected imageType values */
 const imageType: string[] = [
@@ -197,14 +206,7 @@ function filterFields<T extends object>(source: T):any {
   }
   return result;
 }
-let productId: string = "";
-let sellerId: string  = "";
-let tenantId: string  = "";
-let clientId: string  = "";
-let clientSecret: string  = "";
-let packagePath: string = "";
-let photosPath: string = "";
-let command: string = "";
+
 
 async function configureAction() {
   productId = core.getInput("product-id");
@@ -354,11 +356,15 @@ function checkDifference(metadata_new: any, metadata_old: any): boolean {
 }
 
 async function add_files_to_metadata(metadata_json: any, packagePath: string, photosPath: string) {
+  metadata_json.Trailers = []; // Reinitialize Trailers 
+
+  // Set FileStatus to "PendingDelete" for all packages 
   if (metadata_json.ApplicationPackages && Array.isArray(metadata_json.ApplicationPackages)) {
     for (const pkg of metadata_json.ApplicationPackages) {
       pkg.Status = "PendingDelete";
     }
   }
+
   // Set FileStatus to "PendingDelete" for all images 
   const listings = metadata_json?.Listings;
   if (listings && typeof listings === "object") {
@@ -372,39 +378,90 @@ async function add_files_to_metadata(metadata_json: any, packagePath: string, ph
   }
   }
 
-  // Update the metadata with the new values
+
+
+  // PendingUpload for all packages
   // Add entries for each file in packagePath directory to ApplicationPackages
   const packageFiles = fs.readdirSync(packagePath);
   for (const packEntry of packageFiles) {
   const entry = {
-    fileName: packEntry,
-    fileStatus: "PendingUpload",
+    FileName: packEntry,
+    FileStatus: "PendingUpload",
   };
   metadata_json.ApplicationPackages.push(entry);
   }
-  // add all photos
+
+
+  // PendingUpload all photos and trailers
   const photoFiles: string[] = [];
   if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
     for (const file of fs.readdirSync(photosPath)) {
       // Infer image type from filename prefix (e.g., Screenshot_abc.png)
       let type = file.split("_")[0];
       // Add the image entry to all locales in Listings
-      for (const locale of Object.keys(metadata_json.Listings)) {
-      if (
-        metadata_json.Listings[locale] &&
-        metadata_json.Listings[locale].BaseListing &&
-        Array.isArray(metadata_json.Listings[locale].BaseListing.Images)
-      ) {
-        metadata_json.Listings[locale].BaseListing.Images.push({
-        FileStatus: "PendingUpload",
-        FileName: file,
-        ImageType: type
-        });
+        if (imageType.includes(type)) {
+          for (const locale of Object.keys(metadata_json.Listings)) {
+            if (
+              metadata_json.Listings[locale] &&
+              metadata_json.Listings[locale].BaseListing &&
+              Array.isArray(metadata_json.Listings[locale].BaseListing.Images)
+            ) {
+              metadata_json.Listings[locale].BaseListing.Images.push({
+              FileStatus: "PendingUpload",
+              FileName: file,
+              ImageType: type
+              });
+            }
+        }
       }
+      else if (type === "TrailerImage") {
+        // Trailer images are handled separately
+        core.warning(`TrailerImage "${file}" found in photos path. Skipping.`);
+        continue;
       }
-      photoFiles.push(file);
+      else if (type === "Trailer") {
+        let imageListJson: { [locale: string]: { Title: string; ImageList: any[] } } = {};
+        for (const locale of Object.keys(metadata_json.Listings)) {
+          imageListJson[locale] = { Title: "", ImageList: [] };
+        }
+
+        metadata_json.Trailers.push({ VideoFileName: file, TrailerAssets: imageListJson });
+      }
+      else {
+        core.warning(`Unknown media type "${type}" in file "${file}" check the prefix. Skipping.`);
+        continue;
+      }
+    }
+
+    // add all trailer images to metadata
+    for (const file of fs.readdirSync(photosPath)) {
+      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
+      let type = file.split("_")[0];
+      // Add the image entry to all locales in Listings
+      if(type==="TrailerImage"){
+        for (const trailer of metadata_json.Trailers) {
+          const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
+          const fileBaseName = file.split("_")[1]?.split(".")[0];
+          console.log(`Checking TrailerImage: videoBaseName=${videoBaseName}, fileBaseName=${fileBaseName}`);
+          // If the video base name matches the file base name, add the image to the TrailerAssets
+          if (videoBaseName === fileBaseName) {
+
+            // For each locale in TrailerAssets, add the TrailerImage to ImageList
+            for (const locale of Object.keys(trailer.TrailerAssets)) {
+              if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
+                trailer.TrailerAssets[locale].Title = trailer.TrailerAssets[locale].Title || videoBaseName;
+                trailer.TrailerAssets[locale].ImageList.push({
+                  FileName: file,
+                  Description: null
+                });
+              }
+            }
+          }
+        }
+      }
     }
   }
+  console.log(JSON.stringify(metadata_json, null, 2));
   return metadata_json;
 }
 
@@ -516,4 +573,3 @@ try {
     core.setFailed(error as string);
   }
   })();
-
