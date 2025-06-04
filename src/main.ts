@@ -442,10 +442,7 @@ async function add_files_to_metadata(metadata_json: any, packagePath: string, ph
         for (const trailer of metadata_json.Trailers) {
           const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
           const fileBaseName = file.split("_")[1]?.split(".")[0];
-          console.log(`Checking TrailerImage: videoBaseName=${videoBaseName}, fileBaseName=${fileBaseName}`);
-          // If the video base name matches the file base name, add the image to the TrailerAssets
           if (videoBaseName === fileBaseName) {
-
             // For each locale in TrailerAssets, add the TrailerImage to ImageList
             for (const locale of Object.keys(trailer.TrailerAssets)) {
               if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
@@ -461,7 +458,6 @@ async function add_files_to_metadata(metadata_json: any, packagePath: string, ph
       }
     }
   }
-  console.log(JSON.stringify(metadata_json, null, 2));
   return metadata_json;
 }
 
