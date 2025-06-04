@@ -50,6 +50,10 @@ The following prefixes are valid for media files:
 
 ## TODO
 
-- Validate JSON
 - Support for trailers
-- better method to get difference of jsons i.e dont upload if files not changed (how do you detect this hashing?)
+- remove application packages and images in listing to avoid confusion.
+- support for flights, it needs atleast one filght submission to be already present, but can work on updates though
+- better method to get difference of jsons i.e dont upload if files not changed (how do you detect this, hashing?)
+- Validate JSON
+- check workflow till on store once
+- need to visit portal for elevated permissions (runFullTrust) (cant bypass ig)
