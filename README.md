@@ -25,3 +25,31 @@
 | `json-file-path`| Path to the JSON file containing app metadata. Run the action with command `json_init` to first to get the template JSON.                                      | No       |           |
 
 ---
+## Valid Media Prefixes
+
+The following prefixes are valid for media files:
+
+- `Screenshot`
+- `MobileScreenshot`
+- `XboxScreenshot`
+- `SurfaceHubScreenshot`
+- `HoloLensScreenshot`
+- `StoreLogo9x16`
+- `StoreLogoSquare`
+- `Icon`
+- `PromotionalArt16x9`
+- `PromotionalArtwork2400X1200`
+- `XboxBrandedKeyArt`
+- `XboxTitledHeroArt`
+- `XboxFeaturedPromotionalArt`
+- `SquareIcon358X358`
+- `BackgroundImage1000X800`
+- `PromotionalArtwork414X180`
+
+---
+
+## TODO
+
+- Validate JSON
+- Support for trailers
+- better method to get difference of jsons i.e dont upload if files not changed (how do you detect this hashing?)
